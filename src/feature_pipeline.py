@@ -7,26 +7,30 @@ load_dotenv()
 AQICN_TOKEN=os.getenv("AQICN_TOKEN")
 OPENWEATHER_KEY=os.getenv("OPENWEATHER_API_KEY")
 LAT,LON=33.7235,73.11822
+HISTORY_FILE="data/processed/feature_history.csv"
+
 
 def fetch_aqicn():
-    url=f"https://api.waqi.info/feed/islamabad/?token={AQICN_TOKEN}"
+    url=f"https://api.waqi.info/feed/geo:{LAT};{LON}/?token={AQICN_TOKEN}"
     resp=requests.get(url).json()
     if resp["status"]!="ok":
         raise Exception(f"AQICN error:{resp}")
     return resp["data"]
 
+
 def fetch_openweather():
     url=f"https://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={OPENWEATHER_KEY}&units=metric"
     resp=requests.get(url).json()
     if resp.get("cod")!=200:
-        raise Exception(f"OpenWeather error: {resp}")
+        raise Exception(f"OpenWeather error:{resp}")
     return resp
 
-def build_feature_row():
+
+def build_raw_row():
     aqicn=fetch_aqicn()
     weather=fetch_openweather()
     now=datetime.now()
-    row={
+    return{
         "timestamp":now,
         "hour":now.hour,
         "day":now.day,
@@ -37,11 +41,25 @@ def build_feature_row():
         "pressure":weather["main"]["pressure"],
         "wind_speed":weather["wind"]["speed"],
     }
-    return row
+
+
+def add_derived_features(df):
+    df=df.sort_values("timestamp").reset_index(drop=True)
+    df["pm25_lag_1"]=df["pm25"].shift(1)    
+    df["pm25_change_rate"]=df["pm25"]-df["pm25_lag_1"]
+    return df
+
+def run():
+    new_row=build_raw_row()
+    if os.path.exists(HISTORY_FILE):
+        history=pd.read_csv(HISTORY_FILE,parse_dates=["timestamp"])
+        history=pd.concat([history, pd.DataFrame([new_row])],ignore_index=True)
+    else:
+        history=pd.DataFrame([new_row])
+    history=add_derived_features(history)
+    history.to_csv(HISTORY_FILE, index=False)
+    print("Latest row with derived features:")
+    print(history.tail(1))
 
 if __name__=="__main__":
-    row=build_feature_row()
-    print(row)
-    df=pd.DataFrame([row])
-    df.to_csv("data/processed/live_feature_test.csv",index=False)
-    print("Saved to data/processed/live_feature_test.csv")
+    run()
