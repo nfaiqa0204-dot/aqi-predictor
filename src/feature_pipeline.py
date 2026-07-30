@@ -43,8 +43,17 @@ def build_raw_row():
 
 def add_derived_features(df):
     df=df.sort_values("timestamp").reset_index(drop=True)
-    df["pm25_lag_1"]=df["pm25"].shift(1)
-    df["pm25_change_rate"]=df["pm25"]-df["pm25_lag_1"]
+    df=df.set_index("timestamp")
+    pm25_series=df["pm25"]
+    def get_lag(hours):
+        lagged_times=df.index-pd.Timedelta(hours=hours)
+        return lagged_times.map(lambda t: pm25_series.asof(t))
+    df["pm25_lag_1h"]=get_lag(1)
+    df["pm25_lag_24h"]=get_lag(24)
+    df["pm25_lag_48h"]=get_lag(48)
+    df["pm25_lag_72h"]=get_lag(72)
+    df["pm25_change_rate"]=df["pm25"]-df["pm25_lag_1h"]
+    df=df.reset_index()
     return df
 
 def get_feature_store():
@@ -57,12 +66,12 @@ def get_feature_store():
 def write_to_feature_store(df):
     fs=get_feature_store()
     fg=fs.get_or_create_feature_group(
-    name="aqi_features",
-    version=1,
-    primary_key=["timestamp"],
-    description="AQI and weather features for Islamabad",
-    event_time="timestamp",
-    time_travel_format="HUDI"
+        name="aqi_features_v2",
+        version=1,
+        primary_key=["timestamp"],
+        description="AQI and weather features for Islamabad (with multi-window lag features)",
+        event_time="timestamp",
+        time_travel_format="HUDI"
     )
     fg.insert(df)
     print("Data written to Hopsworks feature store.")
