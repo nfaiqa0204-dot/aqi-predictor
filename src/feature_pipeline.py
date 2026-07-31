@@ -76,6 +76,28 @@ def write_to_feature_store(df):
     fg.insert(df)
     print("Data written to Hopsworks feature store.")
 
+def fetch_historical_weather(start_date,end_date):
+    """Fetch daily historical weather for a date range from Open-Meteo."""
+    url=(
+        f"https://archive-api.open-meteo.com/v1/archive"
+        f"?latitude={LAT}&longitude={LON}"
+        f"&start_date={start_date}&end_date={end_date}"
+        f"&daily=temperature_2m_mean,relative_humidity_2m_mean,surface_pressure_mean,wind_speed_10m_mean"
+        f"&timezone=Asia%2FKarachi"
+    )
+    resp=requests.get(url).json()
+    if "daily" not in resp:
+        raise Exception(f"Open-Meteo error:{resp}")
+    weather_df=pd.DataFrame({
+        "date":resp["daily"]["time"],
+        "temp":resp["daily"]["temperature_2m_mean"],
+        "humidity":resp["daily"]["relative_humidity_2m_mean"],
+        "pressure":resp["daily"]["surface_pressure_mean"],
+        "wind_speed":resp["daily"]["wind_speed_10m_mean"],
+    })
+    weather_df["date"]=pd.to_datetime(weather_df["date"])
+    return weather_df
+
 def run():
     new_row=build_raw_row()
     if os.path.exists(HISTORY_FILE):
