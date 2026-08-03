@@ -16,9 +16,7 @@ merged["month"]=merged["timestamp"].dt.month.astype("int64")
 merged["pressure"]=merged["pressure"].astype("int64")
 print(f"Merged {len(merged)} rows of historical features.")
 merged=add_derived_features(merged)
-BATCH_SIZE=500
-for i in range(0, len(merged),BATCH_SIZE):
-    batch=merged.iloc[i:i+BATCH_SIZE]
-    print(f"Uploading rows {i} to {i+len(batch)}...")
-    write_to_feature_store(batch)
+print(f"Uploading all {len(merged)}rows in a single batch...")
+write_to_feature_store(merged)
+print("Upload complete.")
 print("Backfill complete.")
