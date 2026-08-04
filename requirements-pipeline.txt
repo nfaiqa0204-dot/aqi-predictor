@@ -1,0 +1,9 @@
+requests
+python-dotenv
+pandas
+numpy
+hopsworks
+scikit-learn
+xgboost
+joblib
+confluent-kafka
