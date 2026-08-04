@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import hopsworks
+import numpy as np
 
 load_dotenv()
 
@@ -32,6 +33,11 @@ def build_targets(df):
     df=df.reset_index()
     return df
 
+def add_cyclical_features(df):
+    df["month_sin"]=np.sin(2*np.pi*df["month"]/12)
+    df["month_cos"]=np.cos(2*np.pi*df["month"]/12)
+    return df
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
@@ -40,7 +46,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 
 FEATURE_COLUMNS=[
-    "hour","day","month","pm25","temp","humidity","pressure","wind_speed",
+    "hour","day","month_sin","month_cos","pm25","temp","humidity","pressure","wind_speed",
     "pm25_lag_1h","pm25_lag_24h","pm25_lag_48h","pm25_lag_72h","pm25_change_rate"
 ]
 
@@ -99,6 +105,7 @@ if __name__=="__main__":
     df=load_features()
     print(f"Loaded {len(df)} rows from feature store.")
     df=build_targets(df)
+    df=add_cyclical_features(df)
     for target in ["target_24h","target_48h","target_72h"]:
         X_train,X_test,y_train,y_test=prepare_training_data(df,target)
         results=train_and_evaluate(X_train,X_test,y_train,y_test,target)
