@@ -106,6 +106,7 @@ def run():
     else:
         history=pd.DataFrame([new_row])
     history=add_derived_features(history)
+    os.makedirs(os.path.dirname(HISTORY_FILE),exist_ok=True)
     history.to_csv(HISTORY_FILE, index=False)
     print("Latest row with derived features:")
     print(history.tail(1))
