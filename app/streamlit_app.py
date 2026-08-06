@@ -48,6 +48,34 @@ def load_model(target_name):
 model_24h=load_model("target_24h")
 model_48h=load_model("target_48h")
 model_72h=load_model("target_72h")
+
+def get_aqi_category(pm25):
+    if pm25 <= 50:
+        return "Good","#00e400"
+    elif pm25 <= 100:
+        return "Moderate","#ffff00"
+    elif pm25 <= 150:
+        return "Unhealthy for Sensitive Groups","#ff7e00"
+    elif pm25 <= 200:
+        return "Unhealthy","#ff0000"
+    elif pm25 <= 300:
+        return "Very Unhealthy","#8f3f97"
+    else:
+        return "Hazardous","#7e0023"
+
+current_pm25=latest["pm25"].values[0]
+category,color=get_aqi_category(current_pm25)
+
+st.subheader("Current Conditions")
+st.markdown(
+    f"""
+    <div style="background-color:{color}; padding:20px; border-radius:10px; text-align:center;">
+        <h1 style="color:white; margin:0;">{current_pm25:.0f}</h1>
+        <p style="color:white; margin:0; font-size:18px;">{category}</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 X_latest=latest[FEATURE_COLUMNS]
 pred_24h=model_24h.predict(X_latest)[0]
 pred_48h=model_48h.predict(X_latest)[0]
