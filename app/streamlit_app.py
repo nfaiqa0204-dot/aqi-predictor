@@ -1,3 +1,4 @@
+import plotly.graph_objects as go
 import streamlit as st
 import pandas as pd
 import os
@@ -88,7 +89,7 @@ forecast_data=[
 ]
 
 cols=st.columns(3)
-for col,(label, value) in zip(cols, forecast_data):
+for col,(label,value) in zip(cols,forecast_data):
     cat,col_color=get_aqi_category(value)
     with col:
         st.markdown(
@@ -101,3 +102,46 @@ for col,(label, value) in zip(cols, forecast_data):
             """,
             unsafe_allow_html=True
         )
+
+max_forecast=max(pred_24h,pred_48h,pred_72h)
+if max_forecast>150:
+    st.markdown(
+        f"""
+        <div style="background-color:#ff0000; padding:15px; border-radius:10px; margin-top:20px; text-align:center;">
+            <h3 style="color:white; margin:0;">⚠️ Hazardous Air Quality Alert</h3>
+            <p style="color:white; margin:5px 0 0 0;">AQI is expected to reach unhealthy levels in the next 3 days. Consider limiting outdoor activity.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+st.subheader("Trend:Last 7 Days+Forecast")
+recent=df.tail(7)[["timestamp","pm25"]].copy()
+recent["type"]="Historical"
+last_time=df["timestamp"].max()
+forecast_points=pd.DataFrame({
+    "timestamp":[last_time,last_time+pd.Timedelta(hours=24),last_time+pd.Timedelta(hours=48),last_time+pd.Timedelta(hours=72)],
+    "pm25":[current_pm25,pred_24h,pred_48h,pred_72h],
+    "type":["Forecast","Forecast","Forecast","Forecast"]
+})
+
+fig=go.Figure()
+fig.add_trace(go.Scatter(
+    x=recent["timestamp"],y=recent["pm25"],
+    mode="lines+markers",name="Historical",
+    line=dict(color="#00bcd4", width=3)
+))
+fig.add_trace(go.Scatter(
+    x=forecast_points["timestamp"],y=forecast_points["pm25"],
+    mode="lines+markers",name="Forecast",
+    line=dict(color="#ff7e00",width=3,dash="dash")
+))
+fig.update_layout(
+    template="plotly_dark",
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    xaxis_title="Date",
+    yaxis_title="PM2.5",
+    height=400
+)
+st.plotly_chart(fig, use_container_width=True,key="aqi_trend_chart")
