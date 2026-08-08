@@ -23,7 +23,6 @@ def connect():
 project=connect()
 fs=project.get_feature_store()
 mr=project.get_model_registry()
-st.write("Loading latest data...")
 fg=fs.get_feature_group(name="aqi_features_v2",version=1)
 df=fg.read()
 df=df.sort_values("timestamp").reset_index(drop=True)
@@ -80,8 +79,25 @@ X_latest=latest[FEATURE_COLUMNS]
 pred_24h=model_24h.predict(X_latest)[0]
 pred_48h=model_48h.predict(X_latest)[0]
 pred_72h=model_72h.predict(X_latest)[0]
+
 st.subheader("3-Day Forecast")
-col1,col2,col3=st.columns(3)
-col1.metric("Tomorrow",f"{pred_24h:.0f}")
-col2.metric("In 2 days",f"{pred_48h:.0f}")
-col3.metric("In 3 days",f"{pred_72h:.0f}")
+forecast_data=[
+    ("Tomorrow",pred_24h),
+    ("In 2 days",pred_48h),
+    ("In 3 days",pred_72h),
+]
+
+cols=st.columns(3)
+for col,(label, value) in zip(cols, forecast_data):
+    cat,col_color=get_aqi_category(value)
+    with col:
+        st.markdown(
+            f"""
+            <div style="background-color:{col_color}; padding:15px; border-radius:10px; text-align:center;">
+                <p style="color:white; margin:0; font-size:14px;">{label}</p>
+                <h2 style="color:white; margin:0;">{value:.0f}</h2>
+                <p style="color:white; margin:0; font-size:12px;">{cat}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
