@@ -4,6 +4,7 @@ import numpy as np
 import os
 import sys
 import time
+from datetime import datetime
 from dotenv import load_dotenv
 import hopsworks
 import joblib
@@ -34,39 +35,9 @@ st.markdown("""
     .block-container {
         position: relative;
         z-index: 2;
-        padding-top: 2rem;
+        padding-top: 0rem;
         padding-bottom: 3rem;
         max-width: 920px;
-    }
-
-    .app-title {
-        font-family: 'Baloo 2', sans-serif;
-        font-weight: 700;
-        font-size: 2rem;
-        color: #2d2a26;
-        margin-bottom: 0;
-    }
-
-    .app-subtitle {
-        font-family: 'Nunito', sans-serif;
-        color: #9b9691;
-        font-size: 0.9rem;
-        font-weight: 700;
-        margin-top: 4px;
-        margin-bottom: 1.8rem;
-    }
-
-    .live-dot {
-        display: inline-block;
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        background: #4cd68a;
-        margin-right: 6px;
-        animation: livePulse 2s ease-in-out infinite;
-    }
-    @keyframes livePulse {
-        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(76,214,138,0.5); }
-        50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(76,214,138,0); }
     }
 
     .section-label {
@@ -94,6 +65,17 @@ st.markdown("""
         box-shadow: 0 10px 24px rgba(0,0,0,0.08) !important;
         animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-delay: 0.4s;
+    }
+
+    div[class*="st-key-humidity-card"], div[class*="st-key-pressure-card"] {
+        border-radius: 22px !important;
+        padding: 16px 18px !important;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.15) !important;
+        margin-top: 12px !important;
+        min-height: 108px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
     .grad-card {
@@ -198,6 +180,93 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def sky_hero_banner(category, humidity, wind, is_day):
+    sky_gradients = {
+        "Good": "linear-gradient(180deg, #6ec6ff 0%, #a8e6c1 100%)" if is_day else "linear-gradient(180deg, #16213e 0%, #0f3443 100%)",
+        "Moderate": "linear-gradient(180deg, #8bb8d9 0%, #ffe17d 100%)" if is_day else "linear-gradient(180deg, #1a2438 0%, #4a3f1a 100%)",
+        "Unhealthy for Sensitive Groups": "linear-gradient(180deg, #a89b8c 0%, #ffb26b 100%)",
+        "Unhealthy": "linear-gradient(180deg, #7a6a5c 0%, #ff6b6b 100%)",
+        "Very Unhealthy": "linear-gradient(180deg, #5a4a6c 0%, #9d6bd6 100%)",
+        "Hazardous": "linear-gradient(180deg, #3a2a34 0%, #7a2e4a 100%)",
+    }
+
+    faces = {
+        "Good": "😎", "Moderate": "🙂", "Unhealthy for Sensitive Groups": "😕",
+        "Unhealthy": "😷", "Very Unhealthy": "🥵", "Hazardous": "🤢",
+    }
+
+    is_rainy = humidity > 75
+    is_windy = wind > 4
+    is_cloudy = humidity > 55
+
+    sky_bg = sky_gradients.get(category, sky_gradients["Moderate"])
+    face = faces.get(category, "🙂")
+    celestial = "☀️" if is_day else "🌙"
+
+    cloud_count = 5 if is_cloudy else 2
+    cloud_speed = "14s" if is_windy else "35s"
+    cloud_opacity = "0.9" if is_cloudy else "0.6"
+
+    clouds_html = ""
+    positions = [(50, 8), (100, 55), (25, 75), (75, 30), (15, 45)]
+    for i in range(cloud_count):
+        top, left = positions[i % len(positions)]
+        delay = -(i * 7)
+        size = 38 if i % 2 == 0 else 28
+        clouds_html += f'<div style="position:absolute; top:{top}px; left:{left}%; font-size:{size}px; opacity:{cloud_opacity}; animation: drift {cloud_speed} linear infinite; animation-delay: {delay}s;">☁️</div>'
+
+    rain_html = ""
+    if is_rainy:
+        drops = "".join([
+            f'<div style="position:absolute; top:-10px; left:{5+i*6}%; width:2px; height:14px; background:rgba(255,255,255,0.5); animation: fall {0.6 + (i%3)*0.2}s linear infinite; animation-delay:{i*0.1}s;"></div>'
+            for i in range(16)
+        ])
+        rain_html = drops
+
+    components.html(f"""
+    <style>
+        html, body {{ margin:0; padding:0; background:transparent !important; }}
+    </style>
+    <div style="position:relative; width:100%; height:260px; border-radius:0 0 40px 40px; overflow:hidden; background:{sky_bg};">
+
+        <div style="position:absolute; top:24px; right:36px; font-size:64px; animation: glow 3s ease-in-out infinite;">
+            {celestial}
+        </div>
+
+        {clouds_html}
+        {rain_html}
+
+        <div style="position:absolute; top:24px; left:28px; z-index:3;">
+            <div style="font-family:'Baloo 2', sans-serif; font-weight:700; font-size:1.6rem; color:white; text-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                🌤️ Islamabad AQI Forecast
+            </div>
+            <div style="font-family:'Nunito', sans-serif; font-weight:700; font-size:0.8rem; color:rgba(255,255,255,0.85); margin-top:4px; display:flex; align-items:center;">
+                <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#4cd68a; margin-right:6px; box-shadow:0 0 8px #4cd68a;"></span>
+                LIVE · {datetime.now().strftime("%b %d, %H:%M").upper()}
+            </div>
+        </div>
+
+        <div style="position:absolute; bottom:22px; left:50%; transform:translateX(-50%); text-align:center; animation: bob 3s ease-in-out infinite; z-index:3;">
+            <div style="font-size:58px; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.25));">{face}</div>
+            <div style="width:54px; height:12px; background:rgba(0,0,0,0.15); border-radius:50%; margin:2px auto 0; filter:blur(3px);"></div>
+        </div>
+
+        <style>
+            @keyframes drift {{ from {{ transform: translateX(-40px); }} to {{ transform: translateX(calc(100vw + 40px)); }} }}
+            @keyframes fall {{ from {{ transform: translateY(0); opacity:0.8; }} to {{ transform: translateY(280px); opacity:0; }} }}
+            @keyframes glow {{
+                0%, 100% {{ filter: drop-shadow(0 0 18px rgba(255,220,120,0.6)); transform: scale(1); }}
+                50% {{ filter: drop-shadow(0 0 30px rgba(255,220,120,0.9)); transform: scale(1.07); }}
+            }}
+            @keyframes bob {{
+                0%, 100% {{ transform: translateX(-50%) translateY(0); }}
+                50% {{ transform: translateX(-50%) translateY(-8px); }}
+            }}
+        </style>
+    </div>
+    """, height=270)
+
+
 def particle_background(color):
     components.html(f"""
     <div id="particle-container" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:1; pointer-events:none;">
@@ -278,26 +347,6 @@ def make_gauge(value, color, max_val=300):
     return fig
 
 
-def make_capsule_gauge(value, max_val):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value,
-        number={'suffix': "%", 'font': {'size': 26, 'family': 'Baloo 2', 'color': 'white'}},
-        gauge={
-            'shape': "bullet",
-            'axis': {'range': [0, max_val], 'visible': False},
-            'bar': {'color': "white", 'thickness': 0.6},
-            'bgcolor': "rgba(255,255,255,0.25)",
-            'borderwidth': 0,
-        }
-    ))
-    fig.update_layout(
-        height=60, margin=dict(l=10, r=10, t=0, b=0),
-        paper_bgcolor="rgba(0,0,0,0)",
-    )
-    return fig
-
-
 def make_dial_gauge(value, max_val, min_val=970):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -374,6 +423,11 @@ latest = df.tail(1)
 current_pm25 = latest["pm25"].values[0]
 category, text_color, bg_color = get_aqi_category(current_pm25)
 
+temp = latest["temp"].values[0]
+humidity = latest["humidity"].values[0]
+wind = latest["wind_speed"].values[0]
+pressure = latest["pressure"].values[0]
+
 particle_background(bg_color)
 
 model_24h = load_model(project, "target_24h")
@@ -385,13 +439,11 @@ pred_24h = model_24h.predict(X_latest)[0]
 pred_48h = model_48h.predict(X_latest)[0]
 pred_72h = model_72h.predict(X_latest)[0]
 
-# ---------- HEADER ----------
-st.markdown('<p class="app-title">🌤️ Islamabad AQI Forecast</p>', unsafe_allow_html=True)
-st.markdown(
-    f'<p class="app-subtitle"><span class="live-dot"></span>LIVE · UPDATED '
-    f'{pd.to_datetime(latest["timestamp"].values[0]).strftime("%b %d, %H:%M").upper()}</p>',
-    unsafe_allow_html=True
-)
+hour_now = datetime.now().hour
+is_day = 6 <= hour_now < 19
+
+# ---------- ANIMATED WEATHER-REACTIVE HERO (title + live status inside) ----------
+sky_hero_banner(category, humidity, wind, is_day)
 
 if category == "Good":
     st.markdown(
@@ -407,7 +459,7 @@ if category == "Good":
     )
 
 # ---------- CURRENT CONDITIONS ----------
-st.markdown('<p class="section-label">✨ Current Conditions</p>', unsafe_allow_html=True)
+st.markdown('<p class="section-label" style="margin-top:24px;">✨ Current Conditions</p>', unsafe_allow_html=True)
 st.markdown(f'<style>div[class*="st-key-gauge-card"] {{ background:{bg_color} !important; }}</style>', unsafe_allow_html=True)
 
 col_gauge, col_stats = st.columns([1.1, 1])
@@ -422,11 +474,6 @@ with col_gauge:
         )
 
 with col_stats:
-    temp = latest["temp"].values[0]
-    humidity = latest["humidity"].values[0]
-    wind = latest["wind_speed"].values[0]
-    pressure = latest["pressure"].values[0]
-
     sub1, sub2 = st.columns(2)
     with sub1:
         st.markdown(
@@ -443,21 +490,33 @@ with col_stats:
             f'</div>', unsafe_allow_html=True
         )
 
-st.markdown(
-        f'<style>'
-        f'div[class*="st-key-humidity-card"] {{ background:{GRADIENTS["humidity"]} !important; }}'
-        f'div[class*="st-key-pressure-card"] {{ background:{GRADIENTS["pressure"]} !important; }}'
-        f'</style>',
+    st.markdown(
+        f'<style>div[class*="st-key-pressure-card"] {{ background:{GRADIENTS["pressure"]} !important; }}</style>',
         unsafe_allow_html=True
     )
 
-with st.container(key="humidity-card"):
-        st.markdown('<p class="grad-label" style="margin-top:8px;">💧 Humidity</p>', unsafe_allow_html=True)
-        st.plotly_chart(make_capsule_gauge(humidity, 100), use_container_width=True, key="humidity_gauge")
+    with st.container(key="humidity-card"):
+        st.markdown(
+            f"""
+            <p class="grad-label" style="margin:0 0 8px 0;">💧 Humidity</p>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="flex:1; height:20px; background:rgba(255,255,255,0.25); border-radius:20px; overflow:hidden;">
+                    <div style="width:{humidity}%; height:100%; background:white; border-radius:20px;"></div>
+                </div>
+                <span style="font-family:'Baloo 2'; color:white; font-weight:700; font-size:1.2rem; min-width:48px;">{humidity:.0f}%</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f'<style>div[class*="st-key-humidity-card"] {{ background:{GRADIENTS["humidity"]} !important; }}</style>',
+            unsafe_allow_html=True
+        )
 
-with st.container(key="pressure-card"):
-        st.markdown('<p class="grad-label" style="margin-top:8px;">🎈 Pressure</p>', unsafe_allow_html=True)
+    with st.container(key="pressure-card"):
+        st.markdown('<p class="grad-label" style="margin:0;">🎈 Pressure</p>', unsafe_allow_html=True)
         st.plotly_chart(make_dial_gauge(pressure, 1030, min_val=970), use_container_width=True, key="pressure_gauge")
+
 # ---------- 3-DAY FORECAST ----------
 st.markdown('<p class="section-label" style="margin-top:32px;">🔮 3-Day Forecast</p>', unsafe_allow_html=True)
 
@@ -538,12 +597,12 @@ fig.update_layout(
     xaxis_title=None,
     yaxis_title="PM2.5",
     height=380,
-    margin=dict(l=10, r=10, t=30, b=10),
+    margin=dict(l=10, r=10, t=50, b=10),
     font=dict(family="Nunito", color="#2d2a26", size=13),
-    xaxis=dict(showgrid=False, color="#2d2a26"),
+    xaxis=dict(showgrid=False, color="#2d2a26", tickfont=dict(size=12)),
     yaxis=dict(gridcolor="#f0ebe4", color="#2d2a26"),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="#2d2a26", size=13))
+    legend=dict(orientation="h", yanchor="bottom", y=1.08, xanchor="left", x=0, font=dict(color="#2d2a26", size=13))
 )
 
 with st.container(key="chart-card"):
-    st.plotly_chart(fig, use_container_width=True, key="aqi_trend_chart")
+    st.plotly_chart(fig, use_container_width=True, key="aqi_trend_chart", config={'displayModeBar': False})
