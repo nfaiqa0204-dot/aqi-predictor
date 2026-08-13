@@ -87,15 +87,6 @@ st.markdown("""
         animation-delay: 0.15s;
     }
 
-    div[class*="st-key-stats-card"] {
-        background: #ffffff !important;
-        border-radius: 28px !important;
-        padding: 18px 20px !important;
-        box-shadow: 0 10px 24px rgba(0,0,0,0.08) !important;
-        animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: 0.25s;
-    }
-
     div[class*="st-key-chart-card"] {
         background: #ffffff !important;
         border-radius: 28px !important;
@@ -105,28 +96,30 @@ st.markdown("""
         animation-delay: 0.4s;
     }
 
-    .icon-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        font-size: 1.1rem;
-        margin-right: 12px;
-        flex-shrink: 0;
-        animation: floatBounce 3s ease-in-out infinite;
+    .grad-card {
+        border-radius: 22px;
+        padding: 16px 18px;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+        transition: transform 0.25s ease;
+        animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: 0.25s;
     }
-    @keyframes floatBounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-4px); }
+    .grad-card:hover {
+        transform: translateY(-4px);
     }
-
-    .stat-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 0;
+    .grad-label {
+        font-family: 'Nunito', sans-serif;
+        font-weight: 700;
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.9);
+        margin: 0 0 6px 0;
+    }
+    .grad-number {
+        font-family: 'Baloo 2', sans-serif;
+        font-weight: 700;
+        font-size: 1.8rem;
+        color: white;
+        margin: 0;
     }
 
     .forecast-card {
@@ -215,10 +208,8 @@ def particle_background(color):
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
     const particles = [];
     const particleColor = "{color}";
-
     for (let i = 0; i < 45; i++) {{
         particles.push({{
             x: Math.random() * canvas.width,
@@ -229,17 +220,14 @@ def particle_background(color):
             opacity: Math.random() * 0.4 + 0.15
         }});
     }}
-
     function animate() {{
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         particles.forEach(p => {{
-            p.x += p.speedX;
-            p.y += p.speedY;
+            p.x += p.speedX; p.y += p.speedY;
             if (p.x < 0) p.x = canvas.width;
             if (p.x > canvas.width) p.x = 0;
             if (p.y < 0) p.y = canvas.height;
             if (p.y > canvas.height) p.y = 0;
-
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
             ctx.fillStyle = particleColor + Math.floor(p.opacity * 255).toString(16).padStart(2, '0');
@@ -248,7 +236,6 @@ def particle_background(color):
         requestAnimationFrame(animate);
     }}
     animate();
-
     window.addEventListener('resize', () => {{
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -285,13 +272,57 @@ def make_gauge(value, color, max_val=300):
         }
     ))
     fig.update_layout(
-        height=250,
-        margin=dict(l=20, r=20, t=20, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        font={'color': color}
+        height=250, margin=dict(l=20, r=20, t=20, b=10),
+        paper_bgcolor="rgba(0,0,0,0)", font={'color': color}
     )
     return fig
 
+
+def make_capsule_gauge(value, max_val):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        number={'suffix': "%", 'font': {'size': 26, 'family': 'Baloo 2', 'color': 'white'}},
+        gauge={
+            'shape': "bullet",
+            'axis': {'range': [0, max_val], 'visible': False},
+            'bar': {'color': "white", 'thickness': 0.6},
+            'bgcolor': "rgba(255,255,255,0.25)",
+            'borderwidth': 0,
+        }
+    ))
+    fig.update_layout(
+        height=60, margin=dict(l=10, r=10, t=0, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+def make_dial_gauge(value, max_val, min_val=970):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        number={'font': {'size': 22, 'family': 'Baloo 2', 'color': 'white'}},
+        gauge={
+            'axis': {'range': [min_val, max_val], 'tickwidth': 0, 'showticklabels': False},
+            'bar': {'color': "white", 'thickness': 0.35},
+            'bgcolor': "rgba(255,255,255,0.25)",
+            'borderwidth': 0,
+        }
+    ))
+    fig.update_layout(
+        height=120, margin=dict(l=10, r=10, t=10, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
+GRADIENTS = {
+    "temp": "linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%)",
+    "humidity": "linear-gradient(135deg, #4facfe 0%, #00c6fb 100%)",
+    "wind": "linear-gradient(135deg, #43cea2 0%, #185a9d 100%)",
+    "pressure": "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+}
 
 FEATURE_COLUMNS = [
     "hour", "day", "month_sin", "month_cos", "pm25", "temp", "humidity", "pressure", "wind_speed",
@@ -318,14 +349,11 @@ def load_model(_project, target_name):
 
 
 def load_feature_data(fs, retries=3, delay=5):
-    last_error = None
     for attempt in range(retries):
         try:
             fg = fs.get_feature_group(name="aqi_features_v2", version=1)
-            df = fg.read()
-            return df
-        except Exception as e:
-            last_error = e
+            return fg.read()
+        except Exception:
             if attempt < retries - 1:
                 st.warning(f"Retrying data load... ({attempt + 1}/{retries})")
                 time.sleep(delay)
@@ -357,6 +385,7 @@ pred_24h = model_24h.predict(X_latest)[0]
 pred_48h = model_48h.predict(X_latest)[0]
 pred_72h = model_72h.predict(X_latest)[0]
 
+# ---------- HEADER ----------
 st.markdown('<p class="app-title">🌤️ Islamabad AQI Forecast</p>', unsafe_allow_html=True)
 st.markdown(
     f'<p class="app-subtitle"><span class="live-dot"></span>LIVE · UPDATED '
@@ -377,6 +406,7 @@ if category == "Good":
         unsafe_allow_html=True
     )
 
+# ---------- CURRENT CONDITIONS ----------
 st.markdown('<p class="section-label">✨ Current Conditions</p>', unsafe_allow_html=True)
 st.markdown(f'<style>div[class*="st-key-gauge-card"] {{ background:{bg_color} !important; }}</style>', unsafe_allow_html=True)
 
@@ -397,27 +427,38 @@ with col_stats:
     wind = latest["wind_speed"].values[0]
     pressure = latest["pressure"].values[0]
 
-    stat_colors = ["#ffd6d6", "#d6ecff", "#d6ffe0", "#f0d6ff"]
-    stats = [
-        ("🌡️", "Temperature", f"{temp:.1f}°C"),
-        ("💧", "Humidity", f"{humidity:.0f}%"),
-        ("🍃", "Wind Speed", f"{wind:.1f} m/s"),
-        ("🎈", "Pressure", f"{pressure:.0f} hPa"),
-    ]
+    sub1, sub2 = st.columns(2)
+    with sub1:
+        st.markdown(
+            f'<div class="grad-card" style="background:{GRADIENTS["temp"]};">'
+            f'<p class="grad-label">🌡️ Temp</p>'
+            f'<p class="grad-number">{temp:.0f}°</p>'
+            f'</div>', unsafe_allow_html=True
+        )
+    with sub2:
+        st.markdown(
+            f'<div class="grad-card" style="background:{GRADIENTS["wind"]};">'
+            f'<p class="grad-label">🍃 Wind</p>'
+            f'<p class="grad-number">{wind:.1f}<span style="font-size:0.9rem;"> m/s</span></p>'
+            f'</div>', unsafe_allow_html=True
+        )
 
-    with st.container(key="stats-card"):
-        for (icon, label, val), badge_color in zip(stats, stat_colors):
-            st.markdown(
-                f'<div class="stat-row">'
-                f'<div style="display:flex; align-items:center;">'
-                f'<span class="icon-badge" style="background:{badge_color};">{icon}</span>'
-                f'<span style="font-family:Nunito; color:#5c5652; font-size:0.9rem; font-weight:700;">{label}</span>'
-                f'</div>'
-                f'<span style="font-family:Baloo 2; color:#2d2a26; font-weight:700; font-size:1.05rem;">{val}</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+st.markdown(
+        f'<style>'
+        f'div[class*="st-key-humidity-card"] {{ background:{GRADIENTS["humidity"]} !important; }}'
+        f'div[class*="st-key-pressure-card"] {{ background:{GRADIENTS["pressure"]} !important; }}'
+        f'</style>',
+        unsafe_allow_html=True
+    )
 
+with st.container(key="humidity-card"):
+        st.markdown('<p class="grad-label" style="margin-top:8px;">💧 Humidity</p>', unsafe_allow_html=True)
+        st.plotly_chart(make_capsule_gauge(humidity, 100), use_container_width=True, key="humidity_gauge")
+
+with st.container(key="pressure-card"):
+        st.markdown('<p class="grad-label" style="margin-top:8px;">🎈 Pressure</p>', unsafe_allow_html=True)
+        st.plotly_chart(make_dial_gauge(pressure, 1030, min_val=970), use_container_width=True, key="pressure_gauge")
+# ---------- 3-DAY FORECAST ----------
 st.markdown('<p class="section-label" style="margin-top:32px;">🔮 3-Day Forecast</p>', unsafe_allow_html=True)
 
 labels = ["Tomorrow", "In 2 days", "In 3 days"]
@@ -463,6 +504,7 @@ if max_forecast > 150:
         unsafe_allow_html=True
     )
 
+# ---------- TREND CHART ----------
 st.markdown('<p class="section-label" style="margin-top:32px;">📈 Trend: Last 7 Days + Forecast</p>', unsafe_allow_html=True)
 
 recent = df.tail(7)[["timestamp", "pm25"]].copy()
