@@ -598,10 +598,19 @@ fig.update_layout(
     yaxis_title="PM2.5",
     height=380,
     margin=dict(l=10, r=10, t=50, b=10),
-    font=dict(family="Nunito", color="#2d2a26", size=13),
-    xaxis=dict(showgrid=False, color="#2d2a26", tickfont=dict(size=12)),
-    yaxis=dict(gridcolor="#f0ebe4", color="#2d2a26"),
-    legend=dict(orientation="h", yanchor="bottom", y=1.08, xanchor="left", x=0, font=dict(color="#2d2a26", size=13))
+    font=dict(family="Nunito", color="#1a1a1a", size=13),
+    xaxis=dict(
+        showgrid=False,
+        color="#1a1a1a",
+        tickfont=dict(size=12, color="#1a1a1a")
+    ),
+    yaxis=dict(
+        gridcolor="#f0ebe4",
+        color="#1a1a1a",
+        title=dict(font=dict(color="#1a1a1a", size=13)),
+        tickfont=dict(color="#1a1a1a")
+    ),
+    legend=dict(orientation="h", yanchor="bottom", y=1.08, xanchor="left", x=0, font=dict(color="#1a1a1a", size=13))
 )
 
 with st.container(key="chart-card"):
