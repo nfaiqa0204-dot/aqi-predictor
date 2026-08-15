@@ -3,8 +3,17 @@ from dotenv import load_dotenv
 import pandas as pd
 import hopsworks
 import numpy as np
+import joblib
+import tensorflow as tf
+from tensorflow import keras
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 load_dotenv()
+
 
 def get_feature_store():
     project=hopsworks.login(
@@ -13,6 +22,7 @@ def get_feature_store():
     )
     return project.get_feature_store()
 
+
 def load_features():
     fs=get_feature_store()
     fg=fs.get_feature_group(name="aqi_features_v2", version=1)
@@ -20,35 +30,33 @@ def load_features():
     df=df.sort_values("timestamp").reset_index(drop=True)
     return df
 
+
 def build_targets(df):
     df=df.set_index("timestamp")
     pm25_series=df["pm25"]
 
     def get_future(hours):
         future_times=df.index+pd.Timedelta(hours=hours)
-        return future_times.map(lambda t:pm25_series.asof(t))
+        return future_times.map(lambda t: pm25_series.asof(t))
+
     df["target_24h"]=get_future(24)
     df["target_48h"]=get_future(48)
     df["target_72h"]=get_future(72)
     df=df.reset_index()
     return df
 
+
 def add_cyclical_features(df):
     df["month_sin"]=np.sin(2*np.pi*df["month"]/12)
     df["month_cos"]=np.cos(2*np.pi*df["month"]/12)
     return df
 
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import Ridge
-from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import numpy as np
 
 FEATURE_COLUMNS=[
     "hour","day","month_sin","month_cos","pm25","temp","humidity","pressure","wind_speed",
     "pm25_lag_1h","pm25_lag_24h","pm25_lag_48h","pm25_lag_72h","pm25_change_rate"
 ]
+
 
 def prepare_training_data(df, target_col):
     data=df.dropna(subset=FEATURE_COLUMNS+[target_col]).copy()
@@ -60,41 +68,84 @@ def prepare_training_data(df, target_col):
     y_train,y_test=y.iloc[:split_idx],y.iloc[split_idx:]
     return X_train,X_test,y_train,y_test
 
-def train_and_evaluate(X_train,X_test,y_train,y_test,target_name):
-    models = {
-    "Ridge Regression":Ridge(alpha=1.0),
-    "Random Forest":RandomForestRegressor(n_estimators=200,max_depth=10,random_state=42),
-    "XGBoost":XGBRegressor(n_estimators=200,max_depth=5,learning_rate=0.05,random_state=42),
-}
+
+def build_and_train_nn(X_train, X_test, y_train, y_test):
+    model = keras.Sequential([
+        keras.layers.Input(shape=(X_train.shape[1],)),
+        keras.layers.Dense(32, activation='relu'),
+        keras.layers.Dropout(0.2),
+        keras.layers.Dense(16, activation='relu'),
+        keras.layers.Dense(1)
+    ])
+
+    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+    early_stop = keras.callbacks.EarlyStopping(
+        monitor='val_loss', patience=10, restore_best_weights=True
+    )
+
+    model.fit(
+        X_train, y_train,
+        validation_split=0.2,
+        epochs=100,
+        batch_size=16,
+        callbacks=[early_stop],
+        verbose=0
+    )
+
+    preds=model.predict(X_test, verbose=0).flatten()
+
+    rmse=np.sqrt(mean_squared_error(y_test, preds))
+    mae=mean_absolute_error(y_test, preds)
+    r2=r2_score(y_test, preds)
+
+    return model,{"rmse": rmse,"mae": mae,"r2": r2}
+
+
+def train_and_evaluate(X_train, X_test, y_train, y_test, target_name):
+    models={
+        "Ridge Regression":Ridge(alpha=1.0),
+        "Random Forest": RandomForestRegressor(n_estimators=200,max_depth=10,random_state=42),
+        "XGBoost": XGBRegressor(n_estimators=200, max_depth=5,learning_rate=0.05,random_state=42),
+    }
     results={}
+
     for name, model in models.items():
         model.fit(X_train,y_train)
         preds=model.predict(X_test)
         rmse=np.sqrt(mean_squared_error(y_test,preds))
         mae=mean_absolute_error(y_test,preds)
-        r2=r2_score(y_test, preds)
+        r2=r2_score(y_test,preds)
         results[name]={"model":model,"rmse":rmse,"mae":mae,"r2":r2}
-        print(f"\n[{target_name}]{name}")
+        print(f"\n[{target_name}] {name}")
         print(f"  RMSE: {rmse:.2f}")
         print(f"  MAE:  {mae:.2f}")
         print(f"  R²:   {r2:.3f}")
+    nn_model, nn_metrics = build_and_train_nn(
+        X_train.values,X_test.values,y_train.values,y_test.values
+    )
+    results["Neural Network (TensorFlow)"]={"model":nn_model,**nn_metrics}
+    print(f"\n[{target_name}] Neural Network (TensorFlow)")
+    print(f"  RMSE: {nn_metrics['rmse']:.2f}")
+    print(f"  MAE:  {nn_metrics['mae']:.2f}")
+    print(f"  R²:   {nn_metrics['r2']:.3f}")
     return results
 
-import joblib
 
 def save_best_model(project, model, target_name, metrics):
     model_dir=f"models/{target_name}"
-    os.makedirs(model_dir, exist_ok=True)
+    os.makedirs(model_dir,exist_ok=True)
     model_path=f"{model_dir}/model.pkl"
     joblib.dump(model, model_path)
     mr=project.get_model_registry()
     hw_model=mr.python.create_model(
         name=f"aqi_ridge_{target_name}",
-        metrics={"rmse": metrics["rmse"],"mae":metrics["mae"],"r2": metrics["r2"]},
+        metrics={"rmse": metrics["rmse"],"mae": metrics["mae"],"r2": metrics["r2"]},
         description=f"Ridge Regression model predicting PM2.5 at {target_name}"
     )
     hw_model.save(model_dir)
     print(f"Saved {target_name} model to Model Registry.")
+
 
 if __name__=="__main__":
     project=hopsworks.login(
@@ -110,6 +161,4 @@ if __name__=="__main__":
         X_train,X_test,y_train,y_test=prepare_training_data(df,target)
         results=train_and_evaluate(X_train,X_test,y_train,y_test,target)
         best_model_info=results["Ridge Regression"]
-        save_best_model(project, best_model_info["model"],target,best_model_info)
-
-
+        save_best_model(project,best_model_info["model"],target,best_model_info)
