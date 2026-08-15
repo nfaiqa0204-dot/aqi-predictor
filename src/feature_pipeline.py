@@ -26,18 +26,18 @@ def fetch_openweather():
     return resp
 
 def build_raw_row():
-    aqicn=fetch_aqicn()
-    weather=fetch_openweather()
-    now=datetime.now()
+    aqicn = fetch_aqicn()
+    weather = fetch_openweather()
+    now = datetime.now()
     return {
         "timestamp": now,
         "hour": now.hour,
         "day": now.day,
         "month": now.month,
-        "pm25": float(aqicn["iaqi"].get("pm25", {}).get("v")),
+        "pm25": int(round(float(aqicn["iaqi"].get("pm25", {}).get("v")))),
         "temp": float(weather["main"]["temp"]),
-        "humidity": float(weather["main"]["humidity"]),
-        "pressure": float(weather["main"]["pressure"]),
+        "humidity": int(round(float(weather["main"]["humidity"]))),
+        "pressure": int(round(float(weather["main"]["pressure"]))),
         "wind_speed": float(weather["wind"]["speed"]),
     }
 
