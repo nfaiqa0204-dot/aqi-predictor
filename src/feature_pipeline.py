@@ -30,15 +30,15 @@ def build_raw_row():
     weather=fetch_openweather()
     now=datetime.now()
     return {
-        "timestamp":now,
-        "hour":now.hour,
-        "day":now.day,
-        "month":now.month,
-        "pm25":aqicn["iaqi"].get("pm25",{}).get("v"),
-        "temp":weather["main"]["temp"],
-        "humidity":weather["main"]["humidity"],
-        "pressure":weather["main"]["pressure"],
-        "wind_speed":weather["wind"]["speed"],
+        "timestamp": now,
+        "hour": now.hour,
+        "day": now.day,
+        "month": now.month,
+        "pm25": float(aqicn["iaqi"].get("pm25", {}).get("v")),
+        "temp": float(weather["main"]["temp"]),
+        "humidity": float(weather["main"]["humidity"]),
+        "pressure": float(weather["main"]["pressure"]),
+        "wind_speed": float(weather["wind"]["speed"]),
     }
 
 def add_derived_features(df):
