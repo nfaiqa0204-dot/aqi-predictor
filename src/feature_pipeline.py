@@ -11,12 +11,27 @@ OPENWEATHER_KEY=os.getenv("OPENWEATHER_API_KEY")
 LAT,LON=33.7235,73.11822
 HISTORY_FILE="data/processed/feature_history.csv"
 
+import math
+
 def fetch_aqicn():
-    url=f"https://api.waqi.info/feed/geo:{LAT};{LON}/?token={AQICN_TOKEN}"
-    resp=requests.get(url).json()
-    if resp["status"]!="ok":
-        raise Exception(f"AQICN error:{resp}")
-    return resp["data"]
+    url = f"https://api.waqi.info/feed/geo:{LAT};{LON}/?token={AQICN_TOKEN}"
+    resp = requests.get(url).json()
+    if resp["status"] != "ok":
+        raise Exception(f"AQICN error: {resp}")
+
+    data = resp["data"]
+
+    
+    station_lat, station_lon = data["city"]["geo"]
+    distance = math.sqrt((station_lat - LAT)**2 + (station_lon - LON)**2)
+
+    if distance > 1.0: 
+        raise Exception(
+            f"AQICN returned a distant station ({data['city']['name']}, "
+            f"{distance:.2f} degrees away) instead of Islamabad — skipping this run."
+        )
+
+    return data
 
 def fetch_openweather():
     url=f"https://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={OPENWEATHER_KEY}&units=metric"
