@@ -114,18 +114,26 @@ def fetch_historical_weather(start_date,end_date):
     return weather_df
 
 def run():
-    new_row=build_raw_row()
+    try:
+        new_row = build_raw_row()
+    except Exception as e:
+        print(f"Skipping this run: {e}")
+        return
+
     if os.path.exists(HISTORY_FILE):
-        history=pd.read_csv(HISTORY_FILE, parse_dates=["timestamp"])
-        history=pd.concat([history, pd.DataFrame([new_row])],ignore_index=True)
+        history = pd.read_csv(HISTORY_FILE, parse_dates=["timestamp"])
+        history = pd.concat([history, pd.DataFrame([new_row])], ignore_index=True)
     else:
-        history=pd.DataFrame([new_row])
-    history=add_derived_features(history)
-    os.makedirs(os.path.dirname(HISTORY_FILE),exist_ok=True)
+        history = pd.DataFrame([new_row])
+
+    history = add_derived_features(history)
+    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
     history.to_csv(HISTORY_FILE, index=False)
+
     print("Latest row with derived features:")
     print(history.tail(1))
-    latest_row_df=history.tail(1).reset_index(drop=True)
+
+    latest_row_df = history.tail(1).reset_index(drop=True)
     write_to_feature_store(latest_row_df)
 
 if __name__=="__main__":
