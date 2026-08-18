@@ -33,6 +33,19 @@ def fetch_aqicn():
 
     return data
 
+def fetch_openweather_air_pollution():
+    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={OPENWEATHER_KEY}"
+    resp = requests.get(url).json()
+    if "list" not in resp or len(resp["list"]) == 0:
+        raise Exception(f"OpenWeather Air Pollution error: {resp}")
+
+    pm25 = resp["list"][0]["components"]["pm2_5"]
+    return {
+        "iaqi": {"pm25": {"v": pm25}},
+        "city": {"name": "Islamabad (OpenWeather fallback)", "geo": [LAT, LON]},
+        "source": "openweather_fallback"
+    }
+
 def fetch_openweather():
     url=f"https://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={OPENWEATHER_KEY}&units=metric"
     resp=requests.get(url).json()
@@ -41,10 +54,16 @@ def fetch_openweather():
     return resp
 
 def build_raw_row():
-    aqicn = fetch_aqicn()
-    weather = fetch_openweather()
-    now = datetime.now()
-    return {
+      try:
+        aqicn = fetch_aqicn()
+        print(f"Using AQICN: {aqicn['city']['name']}")
+      except Exception as e:
+        print(f"AQICN unavailable ({e}), falling back to OpenWeather Air Pollution API")
+        aqicn = fetch_openweather_air_pollution()
+
+      weather = fetch_openweather()
+      now = datetime.now()
+      return {
         "timestamp": now,
         "hour": now.hour,
         "day": now.day,
@@ -78,9 +97,11 @@ def get_feature_store():
     )
     return project.get_feature_store()
 
-def write_to_feature_store(df):
-    fs=get_feature_store()
-    fg=fs.get_or_create_feature_group(
+import time
+
+def write_to_feature_store(df, retries=3, delay=10):
+    fs = get_feature_store()
+    fg = fs.get_or_create_feature_group(
         name="aqi_features_v2",
         version=1,
         primary_key=["timestamp"],
@@ -88,8 +109,19 @@ def write_to_feature_store(df):
         event_time="timestamp",
         time_travel_format="HUDI"
     )
-    fg.insert(df)
-    print("Data written to Hopsworks feature store.")
+
+    for attempt in range(retries):
+        try:
+            fg.insert(df)
+            print("Data written to Hopsworks feature store.")
+            return
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"Write failed ({e}), retrying in {delay}s... ({attempt + 1}/{retries})")
+                time.sleep(delay)
+            else:
+                print(f"Write failed after {retries} attempts: {e}")
+                raise
 
 def fetch_historical_weather(start_date,end_date):
     """Fetch daily historical weather for a date range from Open-Meteo."""
