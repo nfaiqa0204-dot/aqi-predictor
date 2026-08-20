@@ -100,18 +100,17 @@ def get_feature_store():
 import time
 
 def write_to_feature_store(df, retries=3, delay=10):
-    fs = get_feature_store()
-    fg = fs.get_or_create_feature_group(
-        name="aqi_features_v2",
-        version=1,
-        primary_key=["timestamp"],
-        description="AQI and weather features for Islamabad (with multi-window lag features)",
-        event_time="timestamp",
-        time_travel_format="HUDI"
-    )
-
     for attempt in range(retries):
         try:
+            fs = get_feature_store()
+            fg = fs.get_or_create_feature_group(
+                name="aqi_features_v2",
+                version=1,
+                primary_key=["timestamp"],
+                description="AQI and weather features for Islamabad (with multi-window lag features)",
+                event_time="timestamp",
+                time_travel_format="HUDI"
+            )
             fg.insert(df)
             print("Data written to Hopsworks feature store.")
             return
